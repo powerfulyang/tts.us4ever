@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制应用程序代码
 COPY api.py .
+COPY embedding.py .
 
 # 暴露端口
 EXPOSE 8001

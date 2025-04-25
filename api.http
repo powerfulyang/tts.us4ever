@@ -1,4 +1,12 @@
-POST http://localhost:8000/tts
+POST http://localhost:8001/tts
+Content-Type: application/json
+
+{
+  "text": "Hello, this is a test."
+}
+
+### embedding
+POST http://localhost:8001/embedding
 Content-Type: application/json
 
 {

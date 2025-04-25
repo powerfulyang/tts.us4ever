@@ -2,6 +2,7 @@ import os
 import uuid
 import asyncio
 import time
+from contextlib import asynccontextmanager
 from typing import Optional
 
 import edge_tts
@@ -9,7 +10,24 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-app = FastAPI()
+from embedding import embedding_text
+
+
+# 定期清理临时文件的后台任务
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # 启动后台任务
+    task = asyncio.create_task(cleanup_temp_files())
+    yield
+    # 应用关闭时可添加取消任务的逻辑
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        print("清理任务已取消")
+
+
+app = FastAPI(lifespan=lifespan)
 
 # 创建临时文件存储目录
 os.makedirs("temp", exist_ok=True)
@@ -59,12 +77,6 @@ async def text_to_speech(request: TextToSpeechRequest, background_tasks: Backgro
         raise HTTPException(status_code=500, detail=f"生成语音时出错: {str(e)}")
 
 
-# 定期清理临时文件的后台任务
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(cleanup_temp_files())
-
-
 async def cleanup_temp_files():
     """定期清理临时文件夹中的旧文件"""
     while True:
@@ -80,6 +92,22 @@ async def cleanup_temp_files():
                     os.remove(file_path)
         except Exception as e:
             print(f"Error in cleanup task: {e}")
+
+
+class EmbeddingRequest(BaseModel):
+    text: str
+
+
+@app.post("/embedding")
+async def get_embedding(request: EmbeddingRequest):
+    """
+    获取文本的嵌入表示
+    """
+    try:
+        embedding = embedding_text(request.text)
+        return {"embedding": embedding}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取嵌入表示时出错: {str(e)}")
 
 
 if __name__ == "__main__":
