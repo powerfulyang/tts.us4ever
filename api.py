@@ -1,8 +1,10 @@
-import os
-import uuid
 import asyncio
+import logging
+import os
 import time
+import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Optional
 
 import edge_tts
@@ -11,6 +13,40 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from embedding import embedding_text
+
+
+# 自定义 Formatter，支持毫秒显示
+class MillisecondFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        ct = datetime.fromtimestamp(record.created)
+        s = ct.strftime("%Y-%m-%d %H:%M:%S.%f")
+        return s
+
+
+# 自定义日志配置
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "access": {
+            "()": MillisecondFormatter,
+            "format": "%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "access",
+        },
+    },
+    "loggers": {
+        "uvicorn.access": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False
+        }
+    }
+}
 
 
 # 定期清理临时文件的后台任务
@@ -113,4 +149,4 @@ async def get_embedding(request: EmbeddingRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8001, log_config=LOGGING_CONFIG)
